@@ -1,0 +1,111 @@
+#!/bin/bash
+
+curl="$(/bin/which curl) -sk"
+
+source_env() {
+  local dirname="${1:-"$(dirname $(readlink -f -- ${0}))"}"
+  local envfiles=""
+  while [ "/" != "${dirname}" ]; do
+    if [ -r "${dirname}/.env" ]; then
+      envfiles="$(printf "%s\n%s" "${dirname}/.env" "${envfiles}")"
+    fi
+    dirname="$(dirname "${dirname}")"
+  done
+  for envfile in ${envfiles}; do
+    source <(grep '=' ${envfile} | sed -e 's;#.*;;' -e 's;^;declare -g -- ;')
+  done
+}
+
+bodyfilter() {
+  local program="
+  BEGIN {
+    skip = -1
+    assume_header = -1
+  }
+
+  /^HTTP\/1/ && assume_header < 0 {
+    assume_header = 1
+  }
+
+  /^\r$/ && assume_header > 0 {
+    skip = 1
+    assume_header = 0
+  }
+
+  assume_header <= 0 && skip <= 0 {
+    print
+  }
+
+  skip > 0 {
+    skip--
+  }
+  "
+  awk "${program}" -
+}
+
+ilo_login() {
+  local username password
+  if [ -n "${iLO_USERNAME}" ]; then username="${iLO_USERNAME}"
+  else read  -rp "Username: " username; fi
+  if [ -n "${iLO_PASSWORD}" ]; then password="${iLO_PASSWORD}"
+  else read -srp "Password: " password; fi
+  iLO="${iLO:-${1}}"
+
+  # Use `curl -i` because we need to parse headers
+  local response="$(
+    ${curl} -i \
+      -X POST \
+      -H "Content-Type: application/json" \
+      -H "OData-Version: 4.0" \
+      -d @<(
+        env - UserName="${username}" Password="${password}" \
+          jq -nr 'env'
+      ) \
+      ${iLO}/redfish/v1/SessionService/Sessions/
+  )"
+  local error="$?"
+
+  if [ 0 -lt ${error} ]; then
+    printf >&2 "Encountered error %d - did you check all variables?" ${error}
+    for v in iLO; do
+      echo >&2 -n " ${v}="
+      declare -n v
+      echo >&2 -n "'${v}'"
+    done
+    echo >&2
+    exit ${error}
+  fi
+
+  auth_header="$(echo "${response}" | grep '^X-Auth-Token: ')"
+  # Once the headers are parsed, filter them out for later parsing.
+  response="$(echo "${response}" | bodyfilter)"
+
+  session_cid="$(echo "${response}" | jq -r '."@odata.id"')"
+
+  printf "%s initiated by user %s - %s\n\n" \
+    "$(echo "${response}" | jq -r '.Name')" \
+    "$(echo "${response}" | jq -r '.UserName')" \
+    "$(echo "${response}" | jq -r '.Id')"
+}
+
+ilo_discovery() {
+  # TODO: Actual discovery
+  case "$1" in
+    arraycontroller)
+      ${curl} -H "${auth_header}" \
+        ${iLO}/redfish/v1/Systems/1/SmartStorage/ArrayControllers/31/ \
+      | jq '.'
+      ;;
+    logicaldrives)
+      ${curl} -H "${auth_header}" \
+        ${iLO}/redfish/v1/Systems/1/SmartStorage/ArrayControllers/31/LogicalDrives/ \
+      | jq '.'
+      ;;
+    sd*)
+      local drive=$(echo $1 | cut -c3 | tr 'abcdefghi' '123456789')
+      ${curl} -H "${auth_header}" \
+        ${iLO}/redfish/v1/Systems/1/SmartStorage/ArrayControllers/31/LogicalDrives/${drive}/ \
+      | jq '.'
+      ;;
+  esac
+}
