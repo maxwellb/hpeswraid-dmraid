@@ -39,7 +39,7 @@ controller.
 Sourceable Bash script containing functions which
 wrap the iLO5/Redfish REST&hairsp;_ish_ API.
 
-[`source_env()`](./lib/functions#5)
+[`source_env()`](./lib/functions#LC5)
 
 > Proof-of-concept. Implementation of `.env` file
 > loading in Bash. Loads `.env` files from any
@@ -49,13 +49,13 @@ wrap the iLO5/Redfish REST&hairsp;_ish_ API.
 > Sanitizes input through `declare -g` and allows
 > comments to begin with `#`.
 
-[`bodyfilter()`](./lib/functions#19)
+[`bodyfilter()`](./lib/functions#LC19)
 
 > Strips HTTP headers from `curl` responses,
 > provided to standard input. Passes the body
 > through standard output.
 
-[`ilo_login()`](./lib/functions#46)
+[`ilo_login()`](./lib/functions#LC46)
 
 > Prompts for username and password via `read`, or
 > understands `${iLO_USERNAME}` and
@@ -68,7 +68,7 @@ wrap the iLO5/Redfish REST&hairsp;_ish_ API.
 >   of the logged-in session. To log out, send a
 >   `DELETE` to this path.
 
-[`ilo_discovery()`](./lib/functions#91)
+[`ilo_discovery()`](./lib/functions#LC91)
 
 > Right now, just a smattering of wrapped API
 > calls. Ideally, loads a bunch of OData ID paths
@@ -247,4 +247,4 @@ Thank you for reading this far.
 [gentoo-wiki]: https://wiki.gentoo.org/wiki/Device-mapper#Mirror_and_RAID1
 [hpe-apidoc]: https://hewlettpackard.github.io/ilo-rest-api-docs/ilo5/
 [hpe-blog-storage]: https://developer.hpe.com/blog/storage-management-with-redfish
-[issue-create]: /maxwellb/hpeswraid-dmraid/issues/new/choose
+[issue-create]: https://github.com/maxwellb/hpeswraid-dmraid/issues/new/choose
